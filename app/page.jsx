@@ -29,6 +29,8 @@ export default function HomePage() {
   }, []);
 
   const filtered = products.filter(p => {
+    if (activeTab === 1 && p.category !== 'peptide') return false;
+    if (activeTab === 2 && p.category !== 'accessoire') return false;
     if (search) {
       const q = search.toLowerCase();
       return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
