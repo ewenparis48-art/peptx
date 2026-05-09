@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { products } from '../../lib/products';
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'peptx2026';
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'BibietPipi';
 
 const STATUS_COLORS = {
   'En attente': 'var(--amber)',
