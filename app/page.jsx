@@ -178,7 +178,7 @@ export default function HomePage() {
             <span style={{ fontFamily: 'Space Mono, monospace', color: 'var(--teal)', letterSpacing: '0.06em', fontSize: 11 }}>{p.sku}</span>
             <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 17, fontWeight: 500 }}>{p.name}</span>
             <span style={{ color: 'var(--mute)', fontFamily: 'Space Mono, monospace', fontSize: 11 }}>{p.dose}</span>
-            <span style={{ color: 'var(--teal)', fontWeight: 600, fontFamily: 'Space Mono, monospace', fontSize: 11 }}>{p.purity}%</span>
+            <span style={{ color: 'var(--teal)', fontWeight: 600, fontFamily: 'Space Mono, monospace', fontSize: 11 }}>{p.purity ? `${p.purity}%` : '—'}</span>
             <span style={{ color: 'var(--mute)', fontFamily: 'Space Mono, monospace', fontSize: 11 }}>{p.lot}</span>
 
             {/* x1 — clickable */}
@@ -202,40 +202,42 @@ export default function HomePage() {
 
             {/* x5 */}
             <button
-              onClick={e => handleAddToCart(e, p, 5)}
+              onClick={e => p.price5 != null && handleAddToCart(e, p, 5)}
               title="Ajouter 5×"
+              disabled={p.price5 == null}
               style={{
                 textAlign: 'right',
                 fontFamily: 'Space Grotesk, sans-serif', fontSize: 14,
                 background: addedKey === k5 ? 'var(--teal)' : 'transparent',
-                color: addedKey === k5 ? 'var(--bg)' : 'var(--fg)',
-                border: 'none', cursor: 'pointer',
+                color: addedKey === k5 ? 'var(--bg)' : p.price5 == null ? 'var(--faint)' : 'var(--fg)',
+                border: 'none', cursor: p.price5 == null ? 'default' : 'pointer',
                 padding: '4px 6px',
                 borderRadius: 2,
                 transition: 'background 0.2s, color 0.2s',
                 width: '100%',
               }}
             >
-              {p.price5}€
+              {p.price5 != null ? `${p.price5}€` : '—'}
             </button>
 
             {/* x10 */}
             <button
-              onClick={e => handleAddToCart(e, p, 10)}
+              onClick={e => p.price10 != null && handleAddToCart(e, p, 10)}
               title="Ajouter 10×"
+              disabled={p.price10 == null}
               style={{
                 textAlign: 'right',
                 fontFamily: 'Space Grotesk, sans-serif', fontSize: 14,
                 background: addedKey === k10 ? 'var(--teal)' : 'transparent',
-                color: addedKey === k10 ? 'var(--bg)' : 'var(--fg)',
-                border: 'none', cursor: 'pointer',
+                color: addedKey === k10 ? 'var(--bg)' : p.price10 == null ? 'var(--faint)' : 'var(--fg)',
+                border: 'none', cursor: p.price10 == null ? 'default' : 'pointer',
                 padding: '4px 6px',
                 borderRadius: 2,
                 transition: 'background 0.2s, color 0.2s',
                 width: '100%',
               }}
             >
-              {p.price10}€
+              {p.price10 != null ? `${p.price10}€` : '—'}
             </button>
           </div>
         );
@@ -257,14 +259,14 @@ export default function HomePage() {
               <div>
                 <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--teal)', letterSpacing: '0.06em', marginBottom: 2 }}>{p.sku}</div>
                 <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 16, fontWeight: 600 }}>{p.name}</div>
-                <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--mute)', marginTop: 2 }}>{p.dose} · {p.purity}%</div>
+                <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--mute)', marginTop: 2 }}>{p.dose}{p.purity ? ` · ${p.purity}%` : ''}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 18, fontWeight: 700 }}>dès {p.price1}€</div>
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 10 }}>
-              {[[1, p.price1], [5, p.price5], [10, p.price10]].map(([qty, price]) => {
+              {[[1, p.price1], [5, p.price5], [10, p.price10]].filter(([, price]) => price != null).map(([qty, price]) => {
                 const key = `${p.sku}-${qty}`;
                 return (
                   <button
