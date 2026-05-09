@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { products } from '../lib/products';
+import { products as staticProducts } from '../lib/products';
+import { supabase } from '../lib/supabase';
 import { useCart } from '../components/CartProvider';
 
 const kpis = [
@@ -20,6 +21,12 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState(0);
   const [search, setSearch] = useState('');
   const [addedKey, setAddedKey] = useState(null);
+  const [products, setProducts] = useState(staticProducts);
+
+  useEffect(() => {
+    supabase.from('products').select('*').eq('visible', true).order('position').order('id')
+      .then(({ data }) => { if (data?.length) setProducts(data); });
+  }, []);
 
   const filtered = products.filter(p => {
     if (search) {

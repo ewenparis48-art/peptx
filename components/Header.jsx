@@ -67,7 +67,18 @@ export default function Header() {
       </nav>
 
       {/* Mobile nav */}
-      <div className="mobile-only" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div className="mobile-only" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <button
+          onClick={toggle}
+          style={{
+            background: 'transparent', border: '1px solid var(--rule)',
+            color: 'var(--mute)', padding: '4px 8px', borderRadius: 2,
+            fontFamily: 'Space Mono, monospace', fontSize: 10,
+            cursor: 'pointer', letterSpacing: '0.08em',
+          }}
+        >
+          {isDark ? '☼' : '☾'}
+        </button>
         <Link href="/checkout" style={{ textDecoration: 'none' }}>
           <span className="cart-btn" style={{ fontSize: 10 }}>
             ▤ {totalItems}

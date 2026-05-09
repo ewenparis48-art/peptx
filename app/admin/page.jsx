@@ -245,26 +245,173 @@ function OrdersTab({ orders, setOrders }) {
 }
 
 // ─── Catalogue tab ───
-function CatalogueTab() {
+const EMPTY_PRODUCT = { sku: '', name: '', dose: '', category: 'peptide', purity: '', price1: '', price5: '', price10: '', lot: '', visible: true };
+
+function ProductForm({ initial, onSave, onCancel }) {
+  const [p, setP] = useState(initial);
+  const set = (k, v) => setP(prev => ({ ...prev, [k]: v }));
+  const inp = (k, placeholder) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <label style={{ fontFamily: 'Space Mono, monospace', fontSize: 9, color: 'var(--mute)', letterSpacing: '0.14em' }}>{k.toUpperCase()}</label>
+      <input value={p[k] ?? ''} onChange={e => set(k, e.target.value)} placeholder={placeholder} className="px-input" style={{ fontSize: 13, padding: '7px 10px' }} />
+    </div>
+  );
   return (
-    <div>
-      <div style={{ padding: '16px 28px', borderBottom: '1px solid var(--rule)', fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--mute)', letterSpacing: '0.12em' }}>
-        ⚠ LECTURE SEULE · Modifie les produits dans lib/products.js
+    <div style={{ background: 'var(--panel)', border: '1px solid var(--teal)', borderLeft: '3px solid var(--teal)', padding: '20px 24px', margin: '0 28px 12px' }}>
+      <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--teal)', letterSpacing: '0.14em', marginBottom: 14 }}>
+        {p.id ? `ÉDITER · ${p.sku}` : 'NOUVEAU PRODUIT'}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 70px 80px 80px 80px 80px', padding: '10px 28px', fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--faint)', letterSpacing: '0.14em', textTransform: 'uppercase', borderBottom: '1px solid var(--rule)' }} className="desktop-only">
-        <span>SKU</span><span>Composé</span><span>Dose</span><span>Pureté</span><span style={{ textAlign: 'right' }}>×1</span><span style={{ textAlign: 'right' }}>×5</span><span style={{ textAlign: 'right' }}>×10</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
+        {inp('sku', 'Ex: RTA10')}
+        {inp('name', 'Ex: Rétatrutide')}
+        {inp('dose', 'Ex: 10mg')}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <label style={{ fontFamily: 'Space Mono, monospace', fontSize: 9, color: 'var(--mute)', letterSpacing: '0.14em' }}>CATÉGORIE</label>
+          <select value={p.category} onChange={e => set('category', e.target.value)} className="px-input" style={{ fontSize: 13, padding: '7px 10px' }}>
+            <option value="peptide">Peptide</option>
+            <option value="accessoire">Accessoire</option>
+          </select>
+        </div>
+        {inp('purity', 'Ex: 99.4')}
+        {inp('lot', 'Ex: PX-2618')}
+        {inp('price1', '×1 prix')}
+        {inp('price5', '×5 prix')}
+        {inp('price10', '×10 prix')}
       </div>
-      {products.map((p, i) => (
-        <div key={p.sku} style={{ display: 'grid', gridTemplateColumns: '90px 1.4fr 70px 80px 80px 80px 80px', padding: '14px 28px', borderBottom: '1px solid var(--rule)', alignItems: 'center', background: i % 2 === 1 ? 'var(--panel)' : 'transparent' }} className="desktop-only">
-          <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--teal)' }}>{p.sku}</span>
-          <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 15, fontWeight: 500 }}>{p.name}</span>
-          <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--mute)' }}>{p.dose}</span>
-          <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--teal)' }}>{p.purity}%</span>
-          <span style={{ textAlign: 'right', fontFamily: 'Space Grotesk, sans-serif', fontSize: 14 }}>{p.price1}€</span>
-          <span style={{ textAlign: 'right', fontFamily: 'Space Grotesk, sans-serif', fontSize: 14 }}>{p.price5}€</span>
-          <span style={{ textAlign: 'right', fontFamily: 'Space Grotesk, sans-serif', fontSize: 14 }}>{p.price10}€</span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => onSave(p)} className="btn-primary" style={{ fontSize: 12, padding: '8px 18px' }}>Enregistrer</button>
+        <button onClick={onCancel} style={{ background: 'transparent', border: '1px solid var(--rule)', color: 'var(--mute)', padding: '8px 16px', fontFamily: 'Space Mono, monospace', fontSize: 11, cursor: 'pointer' }}>Annuler</button>
+      </div>
+    </div>
+  );
+}
+
+function CatalogueTab() {
+  const [rows, setRows]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [toast, setToast]     = useState(null);
+
+  const notify = (msg, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000); };
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('products').select('*').order('position').order('id');
+    setRows(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const save = async (p) => {
+    const num = v => (v === '' || v == null) ? null : parseFloat(v);
+    const payload = {
+      sku: p.sku.trim().toUpperCase(),
+      name: p.name.trim(),
+      dose: p.dose.trim(),
+      category: p.category,
+      purity: num(p.purity),
+      price1: num(p.price1),
+      price5: num(p.price5),
+      price10: num(p.price10),
+      lot: p.lot.trim(),
+      visible: p.visible !== false,
+    };
+    if (!payload.sku || !payload.name || !payload.price1) {
+      notify('SKU, nom et prix ×1 sont obligatoires.', false);
+      return;
+    }
+    const { error } = p.id
+      ? await supabase.from('products').update(payload).eq('id', p.id)
+      : await supabase.from('products').insert(payload);
+    if (error) { notify(error.message, false); return; }
+    notify(p.id ? 'Produit mis à jour.' : 'Produit ajouté.');
+    setEditing(null);
+    load();
+  };
+
+  const toggleVisible = async (id, visible) => {
+    await supabase.from('products').update({ visible: !visible }).eq('id', id);
+    setRows(prev => prev.map(r => r.id === id ? { ...r, visible: !visible } : r));
+  };
+
+  const remove = async (id, name) => {
+    if (!confirm(`Supprimer "${name}" ?`)) return;
+    await supabase.from('products').delete().eq('id', id);
+    setRows(prev => prev.filter(r => r.id !== id));
+    notify('Produit supprimé.');
+  };
+
+  const cols = '70px 1.2fr 60px 60px 64px 64px 64px 44px 44px 32px';
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* Toolbar */}
+      <div style={{ padding: '14px 28px', borderBottom: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)', letterSpacing: '0.14em' }}>
+          {rows.length} PRODUIT{rows.length !== 1 ? 'S' : ''} · Supabase live
+        </span>
+        <button onClick={() => setEditing(editing ? null : EMPTY_PRODUCT)} className="btn-primary" style={{ fontSize: 12, padding: '7px 14px' }}>
+          {editing && !editing.id ? '✕ Annuler' : '+ Ajouter'}
+        </button>
+      </div>
+
+      {/* Formulaire nouveau produit */}
+      {editing && !editing.id && (
+        <div style={{ padding: '12px 0 0' }}>
+          <ProductForm initial={editing} onSave={save} onCancel={() => setEditing(null)} />
+        </div>
+      )}
+
+      {/* En-tête */}
+      <div style={{ display: 'grid', gridTemplateColumns: cols, padding: '10px 28px', fontFamily: 'Space Mono, monospace', fontSize: 9, color: 'var(--faint)', letterSpacing: '0.14em', borderBottom: '1px solid var(--rule)' }}>
+        <span>SKU</span><span>Nom / dose</span><span>Cat.</span><span>Pureté</span>
+        <span style={{ textAlign: 'right' }}>×1</span><span style={{ textAlign: 'right' }}>×5</span><span style={{ textAlign: 'right' }}>×10</span>
+        <span style={{ textAlign: 'center' }}>Vis.</span><span style={{ textAlign: 'center' }}>Édit.</span><span></span>
+      </div>
+
+      {loading && <div style={{ padding: '32px 28px', fontFamily: 'Space Mono, monospace', fontSize: 12, color: 'var(--mute)' }}>Chargement…</div>}
+
+      {rows.map((p, i) => (
+        <div key={p.id}>
+          <div style={{ display: 'grid', gridTemplateColumns: cols, padding: '12px 28px', borderBottom: '1px solid var(--rule)', alignItems: 'center', background: i % 2 === 1 ? 'var(--panel)' : 'transparent', opacity: p.visible ? 1 : 0.45 }}>
+            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--teal)' }}>{p.sku}</span>
+            <div>
+              <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 13, fontWeight: 600 }}>{p.name}</div>
+              <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)' }}>{p.dose}</div>
+            </div>
+            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)' }}>{p.category === 'accessoire' ? 'acc.' : 'pep.'}</span>
+            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--teal)' }}>{p.purity ? `${p.purity}%` : '—'}</span>
+            <span style={{ textAlign: 'right', fontSize: 13 }}>{p.price1}€</span>
+            <span style={{ textAlign: 'right', fontSize: 12, color: 'var(--mute)' }}>{p.price5 != null ? `${p.price5}€` : '—'}</span>
+            <span style={{ textAlign: 'right', fontSize: 12, color: 'var(--mute)' }}>{p.price10 != null ? `${p.price10}€` : '—'}</span>
+            <div style={{ textAlign: 'center' }}>
+              <button onClick={() => toggleVisible(p.id, p.visible)} title={p.visible ? 'Masquer du catalogue' : 'Afficher'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 16, color: p.visible ? 'var(--green)' : 'var(--mute)' }}>
+                {p.visible ? '●' : '○'}
+              </button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button onClick={() => setEditing(editing?.id === p.id ? null : { ...p })} style={{ background: 'transparent', border: '1px solid var(--rule)', color: editing?.id === p.id ? 'var(--teal)' : 'var(--mute)', padding: '3px 8px', fontFamily: 'Space Mono, monospace', fontSize: 10, cursor: 'pointer' }}>
+                {editing?.id === p.id ? '✕' : '✎'}
+              </button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button onClick={() => remove(p.id, p.name)} style={{ background: 'transparent', border: 'none', color: 'var(--red)', fontSize: 14, cursor: 'pointer' }} title="Supprimer">✕</button>
+            </div>
+          </div>
+          {editing?.id === p.id && (
+            <div style={{ padding: '8px 0' }}>
+              <ProductForm initial={editing} onSave={save} onCancel={() => setEditing(null)} />
+            </div>
+          )}
         </div>
       ))}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: toast.ok ? 'var(--panel)' : 'rgba(239,68,68,0.12)', border: `1px solid ${toast.ok ? 'var(--teal)' : 'var(--red)'}`, color: toast.ok ? 'var(--teal)' : 'var(--red)', padding: '10px 22px', fontFamily: 'Space Mono, monospace', fontSize: 12, zIndex: 300, whiteSpace: 'nowrap' }}>
+          {toast.ok ? '✓ ' : '✗ '}{toast.msg}
+        </div>
+      )}
     </div>
   );
 }
