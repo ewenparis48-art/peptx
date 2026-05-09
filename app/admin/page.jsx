@@ -258,13 +258,19 @@ function ParrainageTab() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: m }, { data: h }] = await Promise.all([
-        supabase.from('membres').select('*').order('created_at', { ascending: false }),
-        supabase.from('historique').select('*').order('date', { ascending: false }).limit(50),
-      ]);
-      setMembres(m || []);
-      setHistorique(h || []);
-      setLoading(false);
+      try {
+        const [{ data: m }, { data: h }] = await Promise.all([
+          supabase.from('membres').select('*').order('created_at', { ascending: false }),
+          supabase.from('historique').select('*').order('date', { ascending: false }).limit(50),
+        ]);
+        setMembres(m || []);
+        setHistorique(h || []);
+      } catch {
+        setMembres([]);
+        setHistorique([]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
@@ -352,9 +358,14 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authed) return;
     const load = async () => {
-      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      setOrders(data || []);
-      setLoading(false);
+      try {
+        const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        setOrders(data || []);
+      } catch {
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [authed]);

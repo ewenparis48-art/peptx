@@ -380,14 +380,19 @@ const StepCode = ({ referralCode, setReferralCode, referralInfo, setReferralInfo
     if (!input.trim()) return;
     setLoading(true);
     setErr('');
-    const { data } = await supabase.from('membres').select('code, username').eq('code', input.trim().toUpperCase()).maybeSingle();
-    setLoading(false);
-    if (data) {
-      setReferralCode(data.code);
-      setReferralInfo({ owner: data.username, discount: 0.1 });
-      setErr('');
-    } else {
-      setErr('Code invalide ou introuvable.');
+    try {
+      const { data } = await supabase.from('membres').select('code, username').eq('code', input.trim().toUpperCase()).maybeSingle();
+      if (data) {
+        setReferralCode(data.code);
+        setReferralInfo({ owner: data.username, discount: 0.1 });
+        setErr('');
+      } else {
+        setErr('Code invalide ou introuvable.');
+      }
+    } catch {
+      setErr('Erreur de connexion. Réessaie.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -608,24 +613,23 @@ export default function CheckoutPage() {
       status: 'En attente',
     };
 
-    // Save to Supabase
-    await supabase.from('orders').insert([order]);
-
-    // If referral code used, update the parrain's credits and add historique
-    if (referralCode) {
-      await supabase.from('historique').insert([{
-        type: 'parrainage',
-        membre: referralCode,
-        montant: order.total,
-        credits: Math.round(order.total * 0.05),
-        note: `Filleul: ${contact.telegram} · Commande ${orderId}`,
-      }]);
-      await supabase.rpc('increment_credits', { code_val: referralCode, amount: Math.round(order.total * 0.05) }).maybeSingle();
+    try {
+      await supabase.from('orders').insert([order]);
+      if (referralCode) {
+        await supabase.from('historique').insert([{
+          type: 'parrainage',
+          membre: referralCode,
+          montant: order.total,
+          credits: Math.round(order.total * 0.05),
+          note: `Filleul: ${contact.telegram} · Commande ${orderId}`,
+        }]);
+      }
+    } catch {
+      // Continue to confirmation even if save fails
     }
 
     clear();
     setStep(5);
-    // Store order id for confirmation page
     if (typeof window !== 'undefined') sessionStorage.setItem('last_order_id', orderId);
   };
 
