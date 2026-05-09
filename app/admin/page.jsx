@@ -5,6 +5,19 @@ import { products } from '../../lib/products';
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'BibietPipi';
 
+const formatItems = (items) => {
+  if (!items) return '—';
+  if (typeof items === 'string') return items;
+  if (Array.isArray(items)) return items.map(i => `${i.n || i.count || 1}× ${i.name}${i.packSize > 1 ? ` (×${i.packSize})` : ''}`).join(' · ');
+  return JSON.stringify(items);
+};
+
+const formatShipping = (method, price) => {
+  if (!method) return 'Non renseigné';
+  const p = price === 0 ? 'Gratuit' : price != null ? `${price}€` : 'N/A';
+  return `${method} — ${p}`;
+};
+
 const STATUS_COLORS = {
   'En attente': 'var(--amber)',
   'Confirmée': 'var(--teal)',
@@ -79,34 +92,40 @@ function OrderModal({ order, onClose, onStatusChange }) {
           {/* Client */}
           <div>
             <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)', letterSpacing: '0.14em', marginBottom: 10 }}>CLIENT</div>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{order.prenom} {order.nom}</div>
-            <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 13, color: 'var(--teal)', marginBottom: 4 }}>{order.telegram}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
+              {[order.prenom, order.nom].filter(Boolean).join(' ') || order.username || '—'}
+            </div>
+            <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 13, color: 'var(--teal)', marginBottom: 4 }}>{order.telegram || '—'}</div>
             {order.email && <div style={{ fontSize: 12, color: 'var(--mute)' }}>{order.email}</div>}
           </div>
 
           {/* Adresse */}
           <div>
             <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)', letterSpacing: '0.14em', marginBottom: 10 }}>LIVRAISON À</div>
-            <div style={{ fontSize: 13, color: 'var(--fg)', lineHeight: 1.7 }}>
-              {order.adresse}<br />
-              {order.complement && <>{order.complement}<br /></>}
-              {order.cp} {order.ville}<br />
-              {order.pays}
-            </div>
+            {order.adresse ? (
+              <div style={{ fontSize: 13, color: 'var(--fg)', lineHeight: 1.7 }}>
+                {order.adresse}<br />
+                {order.complement && <>{order.complement}<br /></>}
+                {[order.cp, order.ville].filter(Boolean).join(' ')}{(order.cp || order.ville) && <br />}
+                {order.pays}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--mute)' }}>Non renseignée</div>
+            )}
           </div>
 
           {/* Articles */}
           <div style={{ gridColumn: '1 / -1' }}>
             <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)', letterSpacing: '0.14em', marginBottom: 10 }}>ARTICLES</div>
             <div style={{ background: 'var(--bg)', border: '1px solid var(--rule)', padding: '12px 16px', fontSize: 13, color: 'var(--fg)', lineHeight: 1.7 }}>
-              {typeof order.items === 'string' ? order.items : JSON.stringify(order.items)}
+              {formatItems(order.items)}
             </div>
           </div>
 
           {/* Livraison + Code */}
           <div>
             <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)', letterSpacing: '0.14em', marginBottom: 10 }}>LIVRAISON</div>
-            <div style={{ fontSize: 13 }}>{order.shipping_method} — {order.shipping_price === 0 ? 'Gratuit' : `${order.shipping_price}€`}</div>
+            <div style={{ fontSize: 13 }}>{formatShipping(order.shipping_method, order.shipping_price)}</div>
           </div>
 
           {order.referral_code && (
@@ -197,11 +216,11 @@ function OrdersTab({ orders, setOrders }) {
           {/* Desktop */}
           <div className="table-row desktop-only" onClick={() => setSelected(o)} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr 1.8fr 90px 1fr', padding: '14px 28px', borderBottom: '1px solid var(--rule)', alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
             <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--mute)' }}>{o.id}</span>
-            <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 15, fontWeight: 600 }}>{o.prenom} {o.nom}</span>
-            <span style={{ fontFamily: 'Space Mono, monospace', color: 'var(--teal)', fontSize: 12 }}>{o.telegram}</span>
-            <span style={{ color: 'var(--mute)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{typeof o.items === 'string' ? o.items : JSON.stringify(o.items)}</span>
-            <span style={{ textAlign: 'right', fontFamily: 'Space Grotesk, sans-serif', fontSize: 15, fontWeight: 700 }}>{o.total}€</span>
-            <span style={{ textAlign: 'right', fontFamily: 'Space Mono, monospace', fontSize: 11, color: STATUS_COLORS[o.status] || 'var(--fg)', letterSpacing: '0.12em' }}>● {o.status}</span>
+            <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 15, fontWeight: 600 }}>{[o.prenom, o.nom].filter(Boolean).join(' ') || o.username || '—'}</span>
+            <span style={{ fontFamily: 'Space Mono, monospace', color: 'var(--teal)', fontSize: 12 }}>{o.telegram || o.email || '—'}</span>
+            <span style={{ color: 'var(--mute)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatItems(o.items)}</span>
+            <span style={{ textAlign: 'right', fontFamily: 'Space Grotesk, sans-serif', fontSize: 15, fontWeight: 700 }}>{o.total != null ? `${o.total}€` : '—'}</span>
+            <span style={{ textAlign: 'right', fontFamily: 'Space Mono, monospace', fontSize: 11, color: STATUS_COLORS[o.status] || 'var(--mute)', letterSpacing: '0.12em' }}>{o.status ? `● ${o.status}` : '—'}</span>
           </div>
 
           {/* Mobile */}
@@ -209,15 +228,15 @@ function OrdersTab({ orders, setOrders }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)' }}>{o.id}</div>
-                <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 16, fontWeight: 600, marginTop: 2 }}>{o.prenom} {o.nom}</div>
-                <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--teal)', marginTop: 2 }}>{o.telegram}</div>
+                <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 16, fontWeight: 600, marginTop: 2 }}>{[o.prenom, o.nom].filter(Boolean).join(' ') || o.username || '—'}</div>
+                <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--teal)', marginTop: 2 }}>{o.telegram || o.email || '—'}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 18, fontWeight: 700 }}>{o.total}€</div>
-                <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: STATUS_COLORS[o.status], marginTop: 4 }}>● {o.status}</div>
+                <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 18, fontWeight: 700 }}>{o.total != null ? `${o.total}€` : '—'}</div>
+                <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: STATUS_COLORS[o.status] || 'var(--mute)', marginTop: 4 }}>{o.status ? `● ${o.status}` : '—'}</div>
               </div>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--mute)', marginTop: 8 }}>{typeof o.items === 'string' ? o.items : JSON.stringify(o.items)}</div>
+            <div style={{ fontSize: 12, color: 'var(--mute)', marginTop: 8 }}>{formatItems(o.items)}</div>
           </div>
         </div>
       ))}
