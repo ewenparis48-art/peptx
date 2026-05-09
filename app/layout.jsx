@@ -8,6 +8,7 @@ import GatePopup from '../components/GatePopup';
 export const metadata = {
   title: 'PeptX — Catalogue de peptides de recherche',
   description: 'Peptides de recherche haute pureté. Commande ici, paiement sur Telegram.',
+  robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
 };
 
 export default function RootLayout({ children }) {
