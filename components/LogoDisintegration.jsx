@@ -19,21 +19,26 @@ export default function LogoDisintegration({ isDark }) {
   const runAnimation = () => {
     setPhase('animating');
 
-    // Small delay so canvas is visible before we read it
     setTimeout(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
       const W = window.innerWidth;
       const H = window.innerHeight;
-      canvas.width = W;
-      canvas.height = H;
+      const dpr = window.devicePixelRatio || 1;
+
+      // Scale canvas for retina — crisp pixels
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width = `${W}px`;
+      canvas.style.height = `${H}px`;
 
       const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
       const cx = W / 2;
       const cy = H / 2;
 
-      // --- Generate scattered logo positions ---
+      // Scattered logo instances
       const logoCount = 22;
       const logos = [];
       for (let i = 0; i < logoCount; i++) {
@@ -64,51 +69,59 @@ export default function LogoDisintegration({ isDark }) {
         ctx.globalAlpha = 1;
       };
 
-      // Draw once to extract pixel data for particles
       drawLogos();
-      const imgData = ctx.getImageData(0, 0, W, H);
-      const data = imgData.data;
 
-      // Build particle list from colored pixels
+      // Sample pixels at logical resolution
+      const imgData = ctx.getImageData(0, 0, W * dpr, H * dpr);
+      const data = imgData.data;
+      const pw = W * dpr;
+
       const particles = [];
       const step = 3;
       for (let y = 0; y < H; y += step) {
         for (let x = 0; x < W; x += step) {
-          const idx = (y * W + x) * 4;
+          // Sample at DPR-scaled coordinates
+          const sx = Math.round(x * dpr);
+          const sy = Math.round(y * dpr);
+          const idx = (sy * pw + sx) * 4;
           if (data[idx + 3] > 50) {
             const dx = x - cx;
             const dy = y - cy;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const spd = 5 + Math.random() * 14;
+            const spd = 4 + Math.random() * 12;
+            // Random angle drift for organic feel
+            const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.6;
             particles.push({
               x, y,
-              vx: (dx / dist) * spd * (0.5 + Math.random()),
-              vy: (dy / dist) * spd * (0.4 + Math.random()) - Math.random() * 4,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd - Math.random() * 2,
               r: data[idx], g: data[idx + 1], b: data[idx + 2],
             });
           }
         }
       }
 
-      // Hold phase (600ms): logos visible on canvas
-      // (already drawn above — just wait)
+      // Hold phase (500ms)
       setTimeout(() => {
-        // Dissolve phase (1100ms)
         let t0 = null;
-        const dur = 1100;
+        const dur = 1400;
 
         const dissolve = (ts) => {
           if (!t0) t0 = ts;
           const t = Math.min((ts - t0) / dur, 1);
-          const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+          // Ease-out cubic: fast burst, graceful float
+          const moveEase = 1 - Math.pow(1 - t, 3);
+          // Alpha: hold longer, then dissolve fast at the end
+          const alpha = Math.pow(1 - t, 1.4);
 
           ctx.clearRect(0, 0, W, H);
           for (const p of particles) {
-            ctx.globalAlpha = 1 - t;
+            ctx.globalAlpha = alpha;
             ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`;
             ctx.fillRect(
-              p.x + p.vx * ease * 90,
-              p.y + p.vy * ease * 90,
+              p.x + p.vx * moveEase * 100,
+              p.y + p.vy * moveEase * 100,
               step, step
             );
           }
@@ -119,13 +132,12 @@ export default function LogoDisintegration({ isDark }) {
           } else {
             ctx.clearRect(0, 0, W, H);
             setPhase('welcome');
-            // Auto-dismiss after 2.8s
             setTimeout(() => setPhase('idle'), 2800);
           }
         };
 
         rafRef.current = requestAnimationFrame(dissolve);
-      }, 600);
+      }, 500);
     }, 30);
   };
 
