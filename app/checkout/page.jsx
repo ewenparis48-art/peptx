@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '../../components/CartProvider';
-import { validateReferralCode } from '../../lib/products';
+import { supabase } from '../../lib/supabase';
 
 const STEPS = ['Articles', 'Contact', 'Adresse', 'Livraison', 'Code parrain', 'Confirmation'];
 
@@ -374,12 +374,17 @@ const StepLivraison = ({ selectedShipping, setShipping, onNext, onPrev }) => (
 const StepCode = ({ referralCode, setReferralCode, referralInfo, setReferralInfo, total, onNext, onPrev }) => {
   const [input, setInput] = useState('');
   const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const applyCode = () => {
-    const info = validateReferralCode(input);
-    if (info) {
-      setReferralCode(input.toUpperCase());
-      setReferralInfo(info);
+  const applyCode = async () => {
+    if (!input.trim()) return;
+    setLoading(true);
+    setErr('');
+    const { data } = await supabase.from('membres').select('code, username').eq('code', input.trim().toUpperCase()).maybeSingle();
+    setLoading(false);
+    if (data) {
+      setReferralCode(data.code);
+      setReferralInfo({ owner: data.username, discount: 0.1 });
       setErr('');
     } else {
       setErr('Code invalide ou introuvable.');
@@ -449,8 +454,8 @@ const StepCode = ({ referralCode, setReferralCode, referralInfo, setReferralInfo
               placeholder="ex. NOVO44"
               style={{ flex: 1, fontFamily: 'Space Mono, monospace', letterSpacing: '0.1em' }}
             />
-            <button onClick={applyCode} className="btn-ghost" style={{ whiteSpace: 'nowrap' }}>
-              APPLIQUER
+            <button onClick={applyCode} className="btn-ghost" style={{ whiteSpace: 'nowrap' }} disabled={loading}>
+              {loading ? '...' : 'APPLIQUER'}
             </button>
           </div>
           {err && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--red)' }}>{err}</div>}
@@ -580,31 +585,48 @@ export default function CheckoutPage() {
   const selectedShipping = SHIPPING.find(s => s.id === shippingId) || SHIPPING[1];
   const discount = referralInfo ? Math.round(total * referralInfo.discount) : 0;
 
-  const submitOrder = () => {
-    // Save order to localStorage for admin panel
+  const submitOrder = async () => {
+    const orderId = `PX-${Date.now().toString(36).toUpperCase().slice(-6)}`;
     const order = {
-      id: `#${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-      date: new Date().toISOString(),
-      client: `${contact.prenom} ${contact.nom}`,
+      id: orderId,
+      prenom: contact.prenom,
+      nom: contact.nom,
       telegram: contact.telegram,
       email: contact.email,
-      adresse: `${adresse.adresse}, ${adresse.cp} ${adresse.ville}`,
-      items: items.map(i => `${i.count}×${i.name}${i.qty > 1 ? ` (×${i.qty})` : ''}`).join(' · '),
+      adresse: adresse.adresse,
+      complement: adresse.complement,
+      ville: adresse.ville,
+      cp: adresse.cp,
+      pays: adresse.pays,
+      items: items.map(i => `${i.count}×${i.name} ${i.dose}${i.qty > 1 ? ` (×${i.qty})` : ''}`).join(' · '),
       subtotal: total,
-      shipping: selectedShipping.label,
-      shippingPrice: selectedShipping.price,
+      shipping_method: selectedShipping.label,
+      shipping_price: selectedShipping.price,
+      referral_code: referralCode || null,
       discount,
-      referralCode,
       total: total + selectedShipping.price - discount,
       status: 'En attente',
     };
-    try {
-      const existing = JSON.parse(localStorage.getItem('peptx_orders') || '[]');
-      existing.unshift(order);
-      localStorage.setItem('peptx_orders', JSON.stringify(existing));
-    } catch {}
+
+    // Save to Supabase
+    await supabase.from('orders').insert([order]);
+
+    // If referral code used, update the parrain's credits and add historique
+    if (referralCode) {
+      await supabase.from('historique').insert([{
+        type: 'parrainage',
+        membre: referralCode,
+        montant: order.total,
+        credits: Math.round(order.total * 0.05),
+        note: `Filleul: ${contact.telegram} · Commande ${orderId}`,
+      }]);
+      await supabase.rpc('increment_credits', { code_val: referralCode, amount: Math.round(order.total * 0.05) }).maybeSingle();
+    }
+
     clear();
     setStep(5);
+    // Store order id for confirmation page
+    if (typeof window !== 'undefined') sessionStorage.setItem('last_order_id', orderId);
   };
 
   const next = () => {
