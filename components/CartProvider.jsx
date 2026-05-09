@@ -11,7 +11,13 @@ export function CartProvider({ children }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem('peptx_cart');
-      if (saved) setItems(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const valid = Array.isArray(parsed)
+          ? parsed.filter(i => i.key && i.sku && typeof i.unitPrice === 'number' && typeof i.count === 'number')
+          : [];
+        setItems(valid);
+      }
     } catch {}
   }, []);
 

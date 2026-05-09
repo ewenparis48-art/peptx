@@ -99,7 +99,7 @@ function OrderModal({ order, onClose, onStatusChange }) {
           <div style={{ gridColumn: '1 / -1' }}>
             <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--mute)', letterSpacing: '0.14em', marginBottom: 10 }}>ARTICLES</div>
             <div style={{ background: 'var(--bg)', border: '1px solid var(--rule)', padding: '12px 16px', fontSize: 13, color: 'var(--fg)', lineHeight: 1.7 }}>
-              {order.items}
+              {typeof order.items === 'string' ? order.items : JSON.stringify(order.items)}
             </div>
           </div>
 
@@ -199,7 +199,7 @@ function OrdersTab({ orders, setOrders }) {
             <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--mute)' }}>{o.id}</span>
             <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 15, fontWeight: 600 }}>{o.prenom} {o.nom}</span>
             <span style={{ fontFamily: 'Space Mono, monospace', color: 'var(--teal)', fontSize: 12 }}>{o.telegram}</span>
-            <span style={{ color: 'var(--mute)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.items}</span>
+            <span style={{ color: 'var(--mute)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{typeof o.items === 'string' ? o.items : JSON.stringify(o.items)}</span>
             <span style={{ textAlign: 'right', fontFamily: 'Space Grotesk, sans-serif', fontSize: 15, fontWeight: 700 }}>{o.total}€</span>
             <span style={{ textAlign: 'right', fontFamily: 'Space Mono, monospace', fontSize: 11, color: STATUS_COLORS[o.status] || 'var(--fg)', letterSpacing: '0.12em' }}>● {o.status}</span>
           </div>
@@ -217,7 +217,7 @@ function OrdersTab({ orders, setOrders }) {
                 <div style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: STATUS_COLORS[o.status], marginTop: 4 }}>● {o.status}</div>
               </div>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--mute)', marginTop: 8 }}>{o.items}</div>
+            <div style={{ fontSize: 12, color: 'var(--mute)', marginTop: 8 }}>{typeof o.items === 'string' ? o.items : JSON.stringify(o.items)}</div>
           </div>
         </div>
       ))}
